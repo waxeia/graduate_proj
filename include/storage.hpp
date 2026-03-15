@@ -1,11 +1,9 @@
 #pragma once
 #include "common.hpp"
-#include "circuit.hpp"
-
+#include "circuit.hpp"//结果存储后端（HDF5/多文件/内存）
 #include <hdf5.h>
 
 namespace qcs {
-
 struct StorageStats {
     std::uint64_t records_written = 0;
     std::uint64_t bytes_written = 0;
@@ -26,5 +24,4 @@ public:
 };
 
 std::unique_ptr<StorageBackend> make_storage_backend(StorageMode mode);
-
 } // namespace qcs

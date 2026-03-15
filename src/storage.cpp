@@ -60,18 +60,30 @@ private:
     hid_t id_;
 };
 
-hid_t create_record_type() {
-    const hid_t type = H5Tcreate(H5T_COMPOUND, sizeof(ResultRecord));
-    H5Tinsert(type, "task_id", HOFFSET(ResultRecord, task_id), H5T_NATIVE_UINT64);
-    H5Tinsert(type, "assignment", HOFFSET(ResultRecord, assignment), H5T_NATIVE_UINT64);
-    H5Tinsert(type, "rank", HOFFSET(ResultRecord, rank), H5T_NATIVE_INT);
-    H5Tinsert(type, "repeat_id", HOFFSET(ResultRecord, repeat_id), H5T_NATIVE_INT);
-    H5Tinsert(type, "coefficient", HOFFSET(ResultRecord, coefficient), H5T_NATIVE_DOUBLE);
-    H5Tinsert(type, "value", HOFFSET(ResultRecord, value), H5T_NATIVE_DOUBLE);
-    H5Tinsert(type, "contribution", HOFFSET(ResultRecord, contribution), H5T_NATIVE_DOUBLE);
-    H5Tinsert(type, "checksum", HOFFSET(ResultRecord, checksum), H5T_NATIVE_UINT64);
-    return type;
-}
+// hid_t create_record_type() {
+//     const hid_t type = H5Tcreate(H5T_COMPOUND, sizeof(ResultRecord));
+//     H5Tinsert(type, "task_id", HOFFSET(ResultRecord, task_id), H5T_NATIVE_UINT64);
+//     H5Tinsert(type, "assignment", HOFFSET(ResultRecord, assignment), H5T_NATIVE_UINT64);
+//     H5Tinsert(type, "rank", HOFFSET(ResultRecord, rank), H5T_NATIVE_INT);
+//     H5Tinsert(type, "repeat_id", HOFFSET(ResultRecord, repeat_id), H5T_NATIVE_INT);
+//     H5Tinsert(type, "coefficient", HOFFSET(ResultRecord, coefficient), H5T_NATIVE_DOUBLE);
+//     H5Tinsert(type, "value", HOFFSET(ResultRecord, value), H5T_NATIVE_DOUBLE);
+//     H5Tinsert(type, "contribution", HOFFSET(ResultRecord, contribution), H5T_NATIVE_DOUBLE);
+//     H5Tinsert(type, "checksum", HOFFSET(ResultRecord, checksum), H5T_NATIVE_UINT64);
+//     return type;
+// }
+    // src/storage.cpp 中的 create_record_type 函数
+    hid_t create_record_type() {
+        const hid_t type = H5Tcreate(H5T_COMPOUND, sizeof(ResultRecord));
+        H5Tinsert(type, "task_id", HOFFSET(ResultRecord, task_id), H5T_NATIVE_UINT64);
+        H5Tinsert(type, "assignment", HOFFSET(ResultRecord, assignment), H5T_NATIVE_UINT64);
+        H5Tinsert(type, "rank", HOFFSET(ResultRecord, rank), H5T_NATIVE_INT);
+        H5Tinsert(type, "value_real", HOFFSET(ResultRecord, value_real), H5T_NATIVE_DOUBLE);
+        H5Tinsert(type, "value_imag", HOFFSET(ResultRecord, value_imag), H5T_NATIVE_DOUBLE);
+        H5Tinsert(type, "contribution", HOFFSET(ResultRecord, contribution), H5T_NATIVE_DOUBLE);
+        H5Tinsert(type, "checksum", HOFFSET(ResultRecord, checksum), H5T_NATIVE_UINT64);
+        return type;
+    }
 
 void write_scalar_attr(hid_t obj, const char* name, std::uint64_t value) {
     const hsize_t dims[1] = {1};
@@ -451,7 +463,6 @@ private:
     std::filesystem::path rank_dir_;
     StorageStats stats_;
 };
-
 } // namespace
 
 std::unique_ptr<StorageBackend> make_storage_backend(StorageMode mode) {
@@ -462,5 +473,4 @@ std::unique_ptr<StorageBackend> make_storage_backend(StorageMode mode) {
     }
     throw std::runtime_error("Unsupported storage backend");
 }
-
 } // namespace qcs

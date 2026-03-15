@@ -1,9 +1,7 @@
-#include "config.hpp"
+#include "config.hpp"//配置模块的实现
 
 namespace qcs {
-
 namespace {
-
 bool parse_bool(const std::string& value) {
     const auto v = to_lower(trim(value));
     return v == "1" || v == "true" || v == "yes" || v == "on";
@@ -12,29 +10,29 @@ bool parse_bool(const std::string& value) {
 void set_kv(AppConfig& cfg, const std::string& key, const std::string& value) {
     const auto k = to_lower(trim(key));
     const auto v = trim(value);
-    if (k == "num_qubits") cfg.num_qubits = std::stoi(v);
-    else if (k == "circuit_depth") cfg.circuit_depth = std::stoi(v);
-    else if (k == "num_cuts") cfg.num_cuts = std::stoi(v);
-    else if (k == "total_tasks") cfg.total_tasks = static_cast<std::uint64_t>(std::stoull(v));
-    else if (k == "batch_size") cfg.batch_size = static_cast<std::uint64_t>(std::stoull(v));
-    else if (k == "chunk_records") cfg.chunk_records = static_cast<std::uint64_t>(std::stoull(v));
-    else if (k == "max_records_in_memory") cfg.max_records_in_memory = static_cast<std::uint64_t>(std::stoull(v));
-    else if (k == "repeats") cfg.repeats = std::stoi(v);
-    else if (k == "seed") cfg.seed = std::stoi(v);
-    else if (k == "omp_threads") cfg.omp_threads = std::stoi(v);
-    else if (k == "omp_schedule") cfg.omp_schedule = to_lower(v);
-    else if (k == "omp_chunk") cfg.omp_chunk = std::stoi(v);
-    else if (k == "storage_mode") cfg.storage_mode = parse_storage_mode(v);
+    if (k == "num_qubits") cfg.num_qubits = std::stoi(v);//量子比特数量（核心参数，比如28比特对应2^28维态矢量）
+    else if (k == "circuit_depth") cfg.circuit_depth = std::stoi(v);//量子电路深度
+    else if (k == "num_cuts") cfg.num_cuts = std::stoi(v);//电路切割次数
+    else if (k == "total_tasks") cfg.total_tasks = static_cast<std::uint64_t>(std::stoull(v));//总任务数
+    //std::stoull(v)：字符串转无符号长整型；static_cast<std::uint64_t>(.)：类型强转
+    else if (k == "batch_size") cfg.batch_size = static_cast<std::uint64_t>(std::stoull(v));//批处理大小
+    else if (k == "chunk_records") cfg.chunk_records = static_cast<std::uint64_t>(std::stoull(v));//结果分片大小
+    else if (k == "max_records_in_memory") cfg.max_records_in_memory = static_cast<std::uint64_t>(std::stoull(v));//内存缓存上限
+    else if (k == "repeats") cfg.repeats = std::stoi(v);//实验重复次数
+    else if (k == "seed") cfg.seed = std::stoi(v);//随机数种子
+    else if (k == "omp_threads") cfg.omp_threads = std::stoi(v);//OpenMP线程数
+    else if (k == "omp_schedule") cfg.omp_schedule = to_lower(v);//OpenMP调度策略
+    else if (k == "omp_chunk") cfg.omp_chunk = std::stoi(v);//OpenMP分块大小
+    else if (k == "storage_mode") cfg.storage_mode = parse_storage_mode(v);//结果存储模式
     else if (k == "output_dir") cfg.output_dir = v;
-    else if (k == "experiment_name") cfg.experiment_name = v;
-    else if (k == "verify_readback") cfg.verify_readback = parse_bool(v);
+    else if (k == "experiment_name") cfg.experiment_name = v;//实验名称
+    else if (k == "verify_readback") cfg.verify_readback = parse_bool(v);//结果读写校验
     else if (k == "cleanup_existing") cfg.cleanup_existing = parse_bool(v);
     else if (k == "emit_csv") cfg.emit_csv = parse_bool(v);
-    else if (k == "persist_records") cfg.persist_records = parse_bool(v);
-    else if (k == "verbose") cfg.verbose = parse_bool(v);
+    else if (k == "persist_records") cfg.persist_records = parse_bool(v);//是否持久化结果
+    else if (k == "verbose") cfg.verbose = parse_bool(v);//是否打印详细日志
     else throw std::runtime_error("Unknown config key: " + key);
 }
-
 } // namespace
 
 std::string trim(const std::string& s) {
@@ -66,7 +64,7 @@ std::string to_string(StorageMode mode) {
     return "unknown";
 }
 
-std::string cfg_value(const std::map<std::string, std::string>& kv, const std::string& key, const std::string& fallback) {
+std::string cfg_value(const std::map<std::string, std::string>& kv, const std::string& key, const std::string& fallback) {//fallback键不存在时的默认值
     const auto it = kv.find(key);
     return it == kv.end() ? fallback : it->second;
 }
@@ -90,7 +88,6 @@ AppConfig load_config(const std::string& path) {
         }
         set_kv(cfg, content.substr(0, eq), content.substr(eq + 1));
     }
-
     return cfg;
 }
 
@@ -109,8 +106,10 @@ std::uint64_t derive_total_tasks(const AppConfig& cfg) {
     const double cut_factor = std::pow(4.0, static_cast<double>(cfg.num_cuts));
     const double depth_factor = static_cast<double>(std::max(1, cfg.circuit_depth));
     const double qubit_factor = std::max(1.0, std::sqrt(static_cast<double>(std::max(1, cfg.num_qubits))));
+    //TODO：理解公式
     const double raw = 64.0 * cut_factor * qubit_factor * std::log2(depth_factor + 1.0);
+    //限制范围：8192 ≤ 总任务数 ≤ 50000000
     return static_cast<std::uint64_t>(std::min<double>(std::max<double>(8192.0, raw), 50000000.0));
+    //uint64_t：无符号 64 位整数类型
 }
-
 } // namespace qcs

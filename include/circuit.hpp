@@ -14,14 +14,26 @@ struct CircuitDescriptor {
     std::uint64_t total_tasks = 0;
 };
 
+// struct ResultRecord {
+//     std::uint64_t task_id = 0;
+//     std::uint64_t assignment = 0;
+//     int rank = 0;
+//     int repeat_id = 0;
+//     double coefficient = 0.0;
+//     double value = 0.0;
+//     double contribution = 0.0;
+//     std::uint64_t checksum = 0;
+// };
+    // 在 include/circuit.hpp 中修改
 struct ResultRecord {
     std::uint64_t task_id = 0;
     std::uint64_t assignment = 0;
     int rank = 0;
     int repeat_id = 0;
-    double coefficient = 0.0;
-    double value = 0.0;
-    double contribution = 0.0;
+    double coefficient = 0.0; // 模拟算符系数
+    double value_real = 0.0;  // 重构项实部
+    double value_imag = 0.0;  // 重构项虚部
+    double contribution = 0.0; // 最终对观测值的贡献（实数）
     std::uint64_t checksum = 0;
 };
 

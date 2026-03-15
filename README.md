@@ -395,3 +395,80 @@ bash scripts/run_one.sh 4 configs/baseline.cfg \
 ![image-20260311135806505](/home/waxeia/.config/Typora/typora-user-images/image-20260311135806505.png)
 
 ![image-20260311135837549](/home/waxeia/.config/Typora/typora-user-images/image-20260311135837549.png)
+
+运行方式一：点击main函数前面的运行小三角，和点击总的运行按钮效果是一致的。当前状态是都没有传参数，执行编译生成的qcsim可执行文件，当然可以从configuration edit里传特定的参数，这样每次点击运行按钮就省去终端执行输入参数的麻烦了。
+
+![image-20260312172058316](/home/waxeia/.config/Typora/typora-user-images/image-20260312172058316.png)
+
+![image-20260312172402133](/home/waxeia/.config/Typora/typora-user-images/image-20260312172402133.png)
+
+运行方式二：终端传参指令，例如：bash scripts/run_one.sh 1 configs/baseline.cfg \
+  --set storage_mode=memory \
+  --set output_dir=results/memory_test
+
+#### C++语言：
+
+const char* 指向字符串字面量（原生字符数组）
+
+const char* c_ptr = "hello";
+
+string* 指向 std::string 对象    
+
+std::string str_obj = "world";    
+
+std::string* s_ptr = &str_obj;
+
+MPI_Finalize()函数跳转：
+
+函数使用--->openMPI头文件声明（对该函数的声明）--->
+
+![image-20260312200237880](/home/waxeia/.config/Typora/typora-user-images/image-20260312200237880.png)
+
+只链接 OpenMPI 的库文件（`.so`/`.a`），没有把 OpenMPI 源码加入项目，依然可以正常使用该库，只是找不到源码实现而已。
+
+![image-20260312200748269](/home/waxeia/.config/Typora/typora-user-images/image-20260312200748269.png)
+
+接下来就能够通过ctrl+alt+b跳转到MPI_Finalize()的实现了。
+
+项目的命名空间qcs，里面有结构体以及函数的声明，主要是为了避免函数名的冲突。
+
+HDF5（Hierarchical Data Format 5）是一种专为大规模科学数据设计的二进制文件格式
+
+Hierarchical/ˌhaɪəˈrɑːrkɪkl/分层的
+
+concurrency/kənˈkɜːrənsi/n 并行性
+
+```C++
+MPI_Reduce(
+    &metrics.partial_sum,  // 输入：当前进程的局部数据（待汇总）
+    &metrics.global_sum,   // 输出：主进程的全局汇总结果（其他进程此变量无意义）
+    1,                     // 数据个数（1个double）
+    MPI_DOUBLE,            // 数据类型（双精度浮点数）
+    MPI_SUM,               // 归约规则（求和）
+    0,                     // 目标进程（rank=0的主进程）
+    comm_                  // MPI通信域（所有进程在同一个域内通信）
+);
+```
+
+MPI_Rdduce的归约操作：是所有在 `comm_` 通信域内的进程都会执行的集体通信操作，每个进程都把自己的局部输入数据（比如 `metrics.partial_sum`）提交给 MPI 框架；MPI 框架在内部按指定规则（`MPI_SUM`/`MPI_MAX` 等）对所有进程的数据做归约计算；最终只有目标进程（这里是 rank=0） 会得到汇总后的结果，其他进程的输出变量（`metrics.global_sum`）不会被修改，保持原值或无意义。
+
+属于MPI框架的底层操作。
+
+
+
+需要「重复实验」：
+
+![image-20260314161450715](/home/waxeia/.config/Typora/typora-user-images/image-20260314161450715.png)
+
+#### **IDE使用：**
+
+带圆圈的 `p`（紫色）：Property / Function / Method（函数 / 方法 / 属性）
+
+圆圈的 `v`（红色）：Variable（变量）
+
+`S`（紫色方块）：Struct / Class（结构体 / 类）
+
+`f`（紫色方框）：Function（函数）
+
+
+
