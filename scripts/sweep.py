@@ -59,7 +59,7 @@ def main():
             mpi_values, backends, batch_sizes, chunk_records, cuts, threads
         ):
             exp_name = f"{backend}_mpi{mpi}_b{batch}_c{chunk}_cuts{cut}_t{thread}"
-            out_dir = root / "results" / exp_name
+            out_dir = root / "results" / "temp_run"  # 所有实验共用这个文件夹
             cmd = [
                 str(root / "scripts" / "run_one.sh"),
                 mpi,
