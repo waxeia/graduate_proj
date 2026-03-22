@@ -16,39 +16,3 @@ cmake-build-*/
 # 其他              
 *.zip  
 *.tar.gz
-# 编译目录
-build/
-cmake-build-*/
-*.out
-*.app
-
-# 日志文件
-*.log
-
-# 临时文件
-*.swp
-*.swo
-*~
-.DS_Store
-
-# 其他              
-*.zip  
-*.tar.gz
-# 编译目录
-build/
-cmake-build-*/
-*.out
-*.app
-
-# 日志文件
-*.log
-
-# 临时文件
-*.swp
-*.swo
-*~
-.DS_Store
-
-# 其他              
-*.zip  
-*.tar.gz
