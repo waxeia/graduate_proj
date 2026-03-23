@@ -406,6 +406,8 @@ bash scripts/run_one.sh 4 configs/baseline.cfg \
   --set storage_mode=memory \
   --set output_dir=results/memory_test
 
+跑长时间实验：bash scripts/sweep.py
+
 #### C++语言：
 
 const char* 指向字符串字面量（原生字符数组）
@@ -521,7 +523,7 @@ n个量子比特 → 长度 2ⁿ 的向量！
 
 ![image-20260322142915141](/home/waxeia/.config/Typora/typora-user-images/image-20260322142915141.png)
 
-
+![image-20260322143126888](/home/waxeia/.config/Typora/typora-user-images/image-20260322143126888.png)
 
 
 

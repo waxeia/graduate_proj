@@ -16,3 +16,6 @@ cmake-build-*/
 # 其他              
 *.zip  
 *.tar.gz
+
+# 忽略整个 .idea 文件夹（IDE 配置文件）
+.idea/
