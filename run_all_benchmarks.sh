@@ -1,58 +1,56 @@
 #!/bin/bash
 
-# 基础设置
+# 路径设置 (请在项目根目录运行)
 EXE="./build/qcsim"
 CONFIG="./configs/baseline.cfg"
-OUT_DIR="results/benchmarks"
-# 这里的任务数可以根据你电脑性能调整，50000条数据足以看出HDF5和MultiFile的区别
-TASKS=50000
+OUT_BASE="results/mpi_benchmarks"
+
+# 实验参数设置 (大幅增加压力)
+TASKS=500000    # 50万任务，产生约 32MB 数据
 QUBITS=15
+MPI_RANKS=8     # 根据你的 i9 处理器建议设为 8
+OMP_THREADS=1   # 必须为 1，防止与 MPI 冲突
 
-# 创建输出目录
-mkdir -p $OUT_DIR
+mkdir -p $OUT_BASE
 
 echo "=================================================="
-echo "开始量子仿真存储策略自动化测试"
-echo "任务规模: $TASKS tasks, $QUBITS qubits"
+echo "开始 MPI 并行量子仿真存储压力测试"
+echo "硬件: i9-12900H | 并行规模: $MPI_RANKS 进程"
+echo "任务: $TASKS tasks | 规模: $QUBITS qubits"
 echo "=================================================="
 
-# 定义要测试的模式
 MODES=("memory" "hdf5" "multifile")
-
-# 准备汇总表格文件
-SUMMARY_FILE="$OUT_DIR/final_comparison.csv"
-echo "Mode,Total_Time(s),Write_Time(s),Throughput(task/s)" > $SUMMARY_FILE
+SUMMARY="$OUT_BASE/mpi_comparison.csv"
+echo "Mode,Total_Time(s),Write_Time(s),Throughput(task/s)" > $SUMMARY
 
 for MODE in "${MODES[@]}"
 do
-    echo "正在测试模式: $MODE ..."
+    echo ">>> 正在测试模式: $MODE ..."
 
-    # 执行程序，使用 --set 动态覆盖配置
-    # 我们强制设 omp_threads=1 确保 Qulacs 稳定
-    $EXE --config $CONFIG \
+    # 使用 mpirun 启动并行任务
+    mpirun -n $MPI_RANKS $EXE --config $CONFIG \
          --set storage_mode=$MODE \
          --set total_tasks=$TASKS \
          --set num_qubits=$QUBITS \
-         --set omp_threads=1 \
-         --set output_dir="$OUT_DIR/$MODE" \
-         --set verbose=false > "$OUT_DIR/${MODE}_log.txt"
+         --set omp_threads=$OMP_THREADS \
+         --set output_dir="$OUT_BASE/$MODE" \
+         --set verbose=false > "$OUT_BASE/${MODE}_mpi_log.txt"
 
-    # 从生成的 summary.csv 中提取数据 (假设是最后一行)
-    # 注意：这里根据你具体的 csv 格式提取 Total_s, Write_s, Throughput
-    RESULT_LINE=$(tail -n 1 "$OUT_DIR/$MODE/summary.csv")
+    # 提取主进程产生的汇总数据
+    if [ -f "$OUT_BASE/$MODE/summary.csv" ]; then
+        RESULT_LINE=$(tail -n 1 "$OUT_BASE/$MODE/summary.csv")
+        TOTAL_S=$(echo $RESULT_LINE | cut -d',' -f14)
+        WRITE_S=$(echo $RESULT_LINE | cut -d',' -f11)
+        TPS=$(echo $RESULT_LINE | cut -d',' -f19)
 
-    # 提取关键字段（根据你的 CSV 列索引：14是Total_s, 11是Write_s, 19是Throughput）
-    TOTAL_S=$(echo $RESULT_LINE | cut -d',' -f14)
-    WRITE_S=$(echo $RESULT_LINE | cut -d',' -f11)
-    TPS=$(echo $RESULT_LINE | cut -d',' -f19)
-
-    # 写入汇总表
-    echo "$MODE,$TOTAL_S,$WRITE_S,$TPS" >> $SUMMARY_FILE
-
-    echo "完成 $MODE: 耗时 ${TOTAL_S}s, 吞吐量 ${TPS} task/s"
+        echo "$MODE,$TOTAL_S,$WRITE_S,$TPS" >> $SUMMARY
+        echo "结果: 耗时 ${TOTAL_S}s | 写入 ${WRITE_S}s | 吞吐量 ${TPS} task/s"
+    else
+        echo "错误: $MODE 模式未生成结果文件"
+    fi
     echo "--------------------------------------------------"
 done
 
-echo "所有测试已完成！"
-echo "汇总表格已生成: $SUMMARY_FILE"
-column -t -s, $SUMMARY_FILE # 在终端打印漂亮表格
+echo "MPI 压力测试完成！"
+echo "汇总表路径: $SUMMARY"
+column -t -s, $SUMMARY

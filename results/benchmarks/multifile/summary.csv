@@ -1,2 +1,0 @@
-experiment_name,backend,mpi_ranks,omp_threads,num_qubits,circuit_depth,num_cuts,total_tasks,batch_size,chunk_records,compute_seconds,write_seconds,read_seconds,total_seconds,global_sum,records_written,bytes_written,files_created,tasks_per_second,max_buffer_mb
-baseline_rep0,multi_file,1,1,15,120,6,50000,64,16384,198.931562,0.000127,0.000000,198.932340,0.000000,50000,3200000,0,251.341737,0.000000

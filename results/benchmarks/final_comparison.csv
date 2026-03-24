@@ -1,4 +1,0 @@
-Mode,Total_Time(s),Write_Time(s),Throughput(task/s)
-memory,198.166225,198.161382,252.313430
-hdf5,200.141747,199.740792,249.822941
-multifile,198.932340,198.931562,251.341737
