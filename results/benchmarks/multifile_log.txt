@@ -1,0 +1,2 @@
+[run] backend=multi_file mpi=1 omp=1 tasks=50000 total_s=198.9323 write_s=0.0001 read_s=0.0000 throughput=251.3417 task/s
+baseline_rep0,multi_file,1,1,15,120,6,50000,64,16384,198.931562,0.000127,0.000000,198.932340,0.000000,50000,3200000,0,251.341737,0.000000

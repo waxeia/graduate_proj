@@ -1,0 +1,2 @@
+[run] backend=single_hdf5 mpi=1 omp=1 tasks=50000 total_s=200.1417 write_s=0.3977 read_s=0.0023 throughput=249.8229 task/s
+baseline_rep0,single_hdf5,1,1,15,120,6,50000,64,16384,199.740792,0.397664,0.002308,200.141747,0.000000,50000,3200000,1,249.822941,0.003906

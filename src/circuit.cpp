@@ -150,10 +150,10 @@
 
 
 #include "circuit.hpp"
-#include <cppsim/state.hpp>    // 新增：Qulacs 状态头文件
-#include <cppsim/circuit.hpp>  // 新增：Qulacs 线路头文件
+#include <cppsim/state.hpp>
+#include <cppsim/circuit.hpp>
 #include <cppsim/gate_factory.hpp>
-#include <complex>
+#include <omp.h> // 必须引入，用于控制线程
 
 namespace qcs {
 namespace {//匿名命名空间：仅当前文件可见，避免全局命名污染
@@ -213,52 +213,6 @@ LocalTaskRange split_tasks(std::uint64_t total_tasks, int rank, int world_size) 
     //返回任务范围（begin=起始ID，end=起始ID+基础任务数+额外任务数）
     return LocalTaskRange{begin, begin + base + extra};
 }
-    // 模拟一个简单的 2x2 矩阵收缩过程
-// ResultRecord evaluate_task(const CircuitDescriptor& circuit,
-//                                std::uint64_t global_task_id,
-//                                int rank,
-//                                int repeat_id) {
-//     ResultRecord record;//创建空的结果记录
-//     //赋值基础标识（任务ID、进程rank、重复次数）
-//     record.task_id = global_task_id;
-//     record.rank = rank;
-//     record.repeat_id = repeat_id;
-//
-//     // 1. 真实的分配逻辑：量子电路切割通常产生 4^k 个任务
-//     // 将 task_id 映射为 Pauli 算符组合 (I, X, Y, Z)
-//     record.assignment = global_task_id;
-//     /*TODO：量子背景：
-//      *量子电路切割是并行化量子仿真的核心技术，切割后会将原电路分解为多个子电路，
-//      *每个子电路对应一组Pauli算符（I/X/Y/Z）的组合（共4^k种，k为切割数）；
-//     */
-//     // 2. 引入计算密集型模拟：张量收缩
-//     // 我们模拟对每个切割点进行矩阵运算，增加 CPU 耗时
-//     double r_sum = 0.0, i_sum = 0.0;
-//     int complexity = circuit.num_qubits; //量子比特数越多，张量维度越高，计算量呈指数增长
-//
-//     for (int i = 0; i < complexity; ++i) {
-//         //模拟矩阵乘法累加：A * B + C
-//         double angle = (double)(global_task_id % 100) * 0.01 * M_PI;//生成 0~π 的角度值
-//         //实部累加（矩阵乘法的实部），张量收缩的实部计算（量子态的实振幅）
-//         r_sum += std::cos(angle) * circuit.gate_weights[i % circuit.gate_weights.size()];
-//         //虚部累加（矩阵乘法的虚部），张量收缩的虚部计算（量子态的虚振幅）
-//         i_sum += std::sin(angle) * circuit.gate_weights[i % circuit.gate_weights.size()];
-//         // 故意增加循环计算量，以体现计算与 I/O 的平衡
-//     }
-//
-//     // 3. 模拟系数计算（基于 assignment 的奇偶性）
-//     double parity = (__builtin_popcountll(record.assignment) % 2 == 0) ? 1.0 : -1.0;
-//
-//     record.coefficient = parity / (double)(1ULL << circuit.num_cuts);
-//     record.value_real = r_sum / complexity;
-//     record.value_imag = i_sum / complexity;
-//
-//     // 最终贡献值：模拟振幅模长
-//     record.contribution = record.coefficient * (record.value_real * record.value_real);
-//     record.checksum = deterministic_checksum(record);
-//
-//     return record;
-// }
 
     // 1. 建议新增一个辅助函数，用于根据任务 ID 构建 Qulacs 线路
     // 这样你的代码结构会更清晰
@@ -278,65 +232,55 @@ void build_actual_qulacs_circuit(unsigned int n, std::uint64_t task_id, QuantumC
 }
 
 ResultRecord evaluate_task(const CircuitDescriptor& circuit,
-                                   std::uint64_t global_task_id,
-                                   int rank,
-                                   int repeat_id) {
+                                       std::uint64_t global_task_id,
+                                       int rank,
+                                       int repeat_id) {
+    // 关键点 1：强制锁定 Qulacs 内部线程为 1
+    // 防止在外层 MPI 并行时，内部 OpenMP 再次创建大量线程导致死锁
+    omp_set_num_threads(1);
+
     ResultRecord record;
     record.task_id = global_task_id;
     record.rank = rank;
     record.repeat_id = repeat_id;
     record.assignment = global_task_id;
 
-    // --- 【关键修改：接入 Qulacs】 ---
+    // --- 【正式接入 Qulacs 真实计算】 ---
     unsigned int n = circuit.num_qubits;
-    QuantumState state(n);      // 创建量子态
-    state.set_zero_state();     // 初始化
 
+    // 1. 初始化量子态为 |00...0>
+    QuantumState state(n);
+    state.set_zero_state();
+
+    // 2. 构建量子线路
     QuantumCircuit q_circuit(n);
     build_actual_qulacs_circuit(n, global_task_id, q_circuit);
 
-    // 执行高效率的量子仿真
+    // 3. 执行仿真计算
     q_circuit.update_quantum_state(&state);
 
-    // 获取底层复数数组指针 (CPPCTYPE 是 std::complex<double>)
-    CPPCTYPE* raw_data = state.data_cpp();
-
-    // 取出第 0 个分量的振幅作为模拟结果
-    auto target_amplitude = raw_data[0];
+    // 4. 获取计算结果（振幅数据）
+    // state.data_cpp() 返回的是指向态矢量数组的 complex<double> 指针
+    auto* raw_data = state.data_cpp();
+    auto target_amplitude = raw_data[0]; // 取第一个分量作为演示结果
 
     record.value_real = target_amplitude.real();
     record.value_imag = target_amplitude.imag();
-    // -----------------------------
+    // ----------------------------------
 
-    // 3. 模拟系数计算（保留原逻辑，这是重构的数学基础）
+    // 3. 模拟系数计算（保留重构数学逻辑）
     double parity = (__builtin_popcountll(record.assignment) % 2 == 0) ? 1.0 : -1.0;
     record.coefficient = parity / (double)(1ULL << circuit.num_cuts);
 
-    // 4. 最终贡献值：基于实部和虚部的模长平方
+    // 4. 最终贡献值：基于真实振幅的模长平方 * 重构系数
     record.contribution = record.coefficient * (record.value_real * record.value_real + record.value_imag * record.value_imag);
 
-    // 5. 计算校验和（确保你之前的 ResultRecord 结构体已经更新了 value_real/imag 字段）
+    // 5. 计算校验和
     record.checksum = deterministic_checksum(record);
 
     return record;
 }
 
-// std::uint64_t deterministic_checksum(const ResultRecord& record) {
-//     std::uint64_t h = 1469598103934665603ULL;
-//     auto mix = [&](std::uint64_t x) {
-//         h ^= x;
-//         h *= 1099511628211ULL;
-//     };
-//
-//     mix(record.task_id);
-//     mix(record.assignment);
-//     mix(static_cast<std::uint64_t>(record.rank));
-//     mix(static_cast<std::uint64_t>(record.repeat_id));
-//     mix(static_cast<std::uint64_t>(std::llround(record.coefficient * 1e12)));
-//     mix(static_cast<std::uint64_t>(std::llround(record.value * 1e12)));
-//     mix(static_cast<std::uint64_t>(std::llround(record.contribution * 1e12)));
-//     return h;
-// }
 std::uint64_t deterministic_checksum(const ResultRecord& record) {
     std::uint64_t h = 1469598103934665603ULL;
     auto mix = [&](std::uint64_t x) {
