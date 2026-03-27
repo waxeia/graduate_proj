@@ -113,13 +113,22 @@ void apply_overrides(AppConfig& cfg, const std::vector<std::string>& overrides) 
 //     //uint64_t：无符号 64 位整数类型
 // }
 
+// std::uint64_t derive_total_tasks(const AppConfig& cfg) {
+//     // 如果配置文件里指定了 total_tasks，就用配置文件的
+//     if (cfg.total_tasks != 0) return cfg.total_tasks;
+//
+//     // 理论公式：任务数 = 2 的 (num_cuts * 2) 次方，或者简单点 2 的 num_cuts 次方
+//     // 为了你的毕设实验可控，我们直接用 2的 num_cuts 次方
+//     return 1ULL << cfg.num_cuts;
+// }
 std::uint64_t derive_total_tasks(const AppConfig& cfg) {
-    // 如果配置文件里指定了 total_tasks，就用配置文件的
+    // 如果配置文件里指定了 total_tasks，就优先使用配置文件的固定值
     if (cfg.total_tasks != 0) return cfg.total_tasks;
 
-    // 理论公式：任务数 = 2 的 (num_cuts * 2) 次方，或者简单点 2 的 num_cuts 次方
-    // 为了你的毕设实验可控，我们直接用 2的 num_cuts 次方
-    return 1ULL << cfg.num_cuts;
+    // 升级为真实的 4^k 任务总数：
+    // 在数学上 4^k 等价于 2^(2k)。
+    // 在位运算中，左移 2 * num_cuts 位，刚好等于 4 的 num_cuts 次方。
+    return 1ULL << (2 * cfg.num_cuts);
 }
 
 } // namespace qcs
