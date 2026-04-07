@@ -127,46 +127,48 @@ ResultRecord evaluate_task(const CircuitDescriptor& circuit,
     QuantumCircuit q_circuit(n);
     build_actual_qulacs_circuit(n, global_task_id, q_circuit, circuit.num_cuts);
 
-    // 3.执行仿真计算
+    //3.执行仿真计算
     q_circuit.update_quantum_state(&state);
 
-    // 4.获取计算结果
-    auto* raw_data = state.data_cpp();
-    auto target_amplitude = raw_data[0];
+    //4.获取计算结果：从量子态对象state中提取计算结果，并将其存储到ResultRecord结构体中
+    auto* raw_data = state.data_cpp();//返回一个指向量子态内部数据数组的指针
+    auto target_amplitude = raw_data[0];//基态 |00...0> 的振幅
 
-    record.value_real = target_amplitude.real();
-    record.value_imag = target_amplitude.imag();
+    record.value_real = target_amplitude.real();//记录量子态振幅的实数值
+    record.value_imag = target_amplitude.imag();//记录量子态振幅的虚数值
 
-    // 5. 升级版的重构系数计算 (Quasiprobability Decomposition Coefficient)
-    // 真实切割中，不同泡利测量有不同的权重(通常带正负号)。
-    // 这里我们解析 task_id 的四进制位，模拟真实的符号翻转：
-    // 假设遇到 Y(2) 或 Z(3) 算符时，奇偶性翻转。
+    //5.重构系数计算 (Quasiprobability Decomposition Coefficient)
+    //真实切割中，不同泡利测量有不同的权重(通常带正负号)。
+    //这里我们解析 task_id 的四进制位，模拟真实的符号翻转：
+    //假设遇到Y(2)或Z(3)算符时，奇偶性翻转。
     double parity = 1.0;
     std::uint64_t temp_id = global_task_id;
     for (int i = 0; i < circuit.num_cuts; ++i) {
-        int pauli_type = temp_id & 3; // 取当前切割点的状态
-        if (pauli_type == 2 || pauli_type == 3) {
+        int pauli_type = temp_id & 3; //取当前切割点的状态，从 temp_id 的最低两位提取泡利算符类型
+        if (pauli_type == 2 || pauli_type == 3) {//2（Y 门）或 3（Z 门）
             parity = -parity; // 模拟 Y 和 Z 测量带来的符号变化
         }
         temp_id >>= 2; // 右移2位，检查下一个切割点
-    }
+    }//解析 global_task_id 中的四进制位，统计 Y 和 Z 算符的数量（每次遇到时翻转符号），最终 parity 反映了所有切割点的符号贡献。这用于计算 record.coefficient，确保量子电路切割的数学正确性。
 
-    // 在 QCC 理论中，每切一刀通常会引入 1/2 的权重系数（或类似的归一化因子）
-    // 这里我们保持数学框架，每刀引入系数 1/2，所以 k 刀除以 2^k
-    record.coefficient = parity / (double)(1ULL << circuit.num_cuts);
+    // 在 QCC 理论中，每切一刀通常会引入1/2的权重系数（或类似的归一化因子）
+    // 这里我们保持数学框架，每刀引入系数1/2，所以k刀除以2^k
+    record.coefficient = parity/(double)(1ULL << circuit.num_cuts);//结合了符号翻转（parity）和归一化因子
 
-    // 6. 最终贡献值：模长平方 * 重构系数
+    //6.最终贡献值：模长平方*重构系数
+    //record.contribution 表示当前子任务对最终重构概率的贡献。它是重构系数（record.coefficient）与量子态振幅模长平方的乘积。模长平方代表测量到该态的概率密度
     record.contribution = record.coefficient * (record.value_real * record.value_real + record.value_imag * record.value_imag);
+    //所有子任务的贡献值求和后，应接近完整电路的概率（归一化后）。
 
-    // 7.计算校验和
+    //7.计算校验和
     record.checksum = deterministic_checksum(record);
-
     return record;
 }
 
 std::uint64_t deterministic_checksum(const ResultRecord& record) {
-    std::uint64_t h = 1469598103934665603ULL;
-    auto mix = [&](std::uint64_t x) {
+    std::uint64_t h = 1469598103934665603ULL;//初始化哈希值
+    //定义一个 lambda 函数
+    auto mix = [&](std::uint64_t x) {//混合函数（mix）
         h ^= x;
         h *= 1099511628211ULL;
     };
@@ -176,12 +178,10 @@ std::uint64_t deterministic_checksum(const ResultRecord& record) {
     mix(static_cast<std::uint64_t>(record.rank));
     mix(static_cast<std::uint64_t>(record.repeat_id));
     mix(static_cast<std::uint64_t>(std::llround(record.coefficient * 1e12)));
-
-    // 关键点：将原先的 value 替换为实部和虚部
+    // 关键点：将原先的value替换为实部和虚部
     mix(static_cast<std::uint64_t>(std::llround(record.value_real * 1e12)));
     mix(static_cast<std::uint64_t>(std::llround(record.value_imag * 1e12)));
-
     mix(static_cast<std::uint64_t>(std::llround(record.contribution * 1e12)));
     return h;
-}
+}//用途：在evaluate_task中计算record.checksum，存储后端（如HDF5）使用它验证读取的数据是否与写入一致，避免脏数据影响实验结果。
 } // namespace qcs

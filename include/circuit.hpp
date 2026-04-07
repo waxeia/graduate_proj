@@ -13,17 +13,6 @@ struct CircuitDescriptor {//量子电路描述符（存储电路核心参数）
     std::vector<double> gate_weights;//每个量子门的权重（用于仿真计算）
     std::uint64_t total_tasks = 0;//该电路对应的总仿真任务数
 };
-
-// struct ResultRecord {
-//     std::uint64_t task_id = 0;
-//     std::uint64_t assignment = 0;
-//     int rank = 0;
-//     int repeat_id = 0;
-//     double coefficient = 0.0;
-//     double value = 0.0;
-//     double contribution = 0.0;
-//     std::uint64_t checksum = 0;
-// };
 //存储单个仿真任务的完整结果
 struct ResultRecord {
     std::uint64_t task_id = 0;//全局任务ID（唯一标识单个仿真任务）

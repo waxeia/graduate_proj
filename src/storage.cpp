@@ -1,21 +1,22 @@
 #include "storage.hpp"
 #include "config.hpp"
+#include <hdf5.h>
 
 namespace qcs {
-
 namespace {
-
 class ScopedH5Type {
 public:
-    explicit ScopedH5Type(hid_t id = -1) : id_(id) {}
-    ~ScopedH5Type() { if (id_ >= 0) H5Tclose(id_); }
-    hid_t get() const { return id_; }
-    ScopedH5Type(const ScopedH5Type&) = delete;
-    ScopedH5Type& operator=(const ScopedH5Type&) = delete;
+    //id_ 的类型是 hid_t
+    explicit ScopedH5Type(hid_t id = -1) : id_(id) {}//构造函数
+    ~ScopedH5Type() { if (id_ >= 0) H5Tclose(id_); }//析构函数
+    hid_t get() const { return id_; }//获取器（Getter）。因为底层原生 HDF5 的 C 函数（比如 H5Dcreate2）不认识你包装的这个 C++ 类，它们只认 hid_t。所以你需要用 .get() 把原始句柄拿出来传给它们。
+    ScopedH5Type(const ScopedH5Type&) = delete;//禁用拷贝构造函数
+    ScopedH5Type& operator=(const ScopedH5Type&) = delete;//禁用拷贝赋值运算符
+    //ScopedH5Type A(id);ScopedH5Type B=A;（拷贝了一份），现在A和B内部都有同一个 id_。当它们离开作用域时，B的析构函数调用H5Tclose(id_)关闭了句柄。接着A的析构函数又调用一次 H5Tclose(id_)。这叫Double-Free（重复释放），会导致程序立刻崩溃（段错误 Segmentation Fault）。所以，写上= delete，直接从编译器层面掐断了别人复制这个对象的念头，保证了一个资源只能有一个“唯一主人” 。
 private:
     hid_t id_;
 };
-
+//管理的资源是HDF5的Dataspace（数据有多少个，如何排列的）
 class ScopedH5Space {
 public:
     explicit ScopedH5Space(hid_t id = -1) : id_(id) {}
@@ -26,7 +27,7 @@ public:
 private:
     hid_t id_;
 };
-
+//理的就是最核心的实体：HDF5物理文件（File）本身
 class ScopedH5File {
 public:
     explicit ScopedH5File(hid_t id = -1) : id_(id) {}
@@ -60,30 +61,17 @@ private:
     hid_t id_;
 };
 
-// hid_t create_record_type() {
-//     const hid_t type = H5Tcreate(H5T_COMPOUND, sizeof(ResultRecord));
-//     H5Tinsert(type, "task_id", HOFFSET(ResultRecord, task_id), H5T_NATIVE_UINT64);
-//     H5Tinsert(type, "assignment", HOFFSET(ResultRecord, assignment), H5T_NATIVE_UINT64);
-//     H5Tinsert(type, "rank", HOFFSET(ResultRecord, rank), H5T_NATIVE_INT);
-//     H5Tinsert(type, "repeat_id", HOFFSET(ResultRecord, repeat_id), H5T_NATIVE_INT);
-//     H5Tinsert(type, "coefficient", HOFFSET(ResultRecord, coefficient), H5T_NATIVE_DOUBLE);
-//     H5Tinsert(type, "value", HOFFSET(ResultRecord, value), H5T_NATIVE_DOUBLE);
-//     H5Tinsert(type, "contribution", HOFFSET(ResultRecord, contribution), H5T_NATIVE_DOUBLE);
-//     H5Tinsert(type, "checksum", HOFFSET(ResultRecord, checksum), H5T_NATIVE_UINT64);
-//     return type;
-// }
-    // src/storage.cpp 中的 create_record_type 函数
-    hid_t create_record_type() {
-        const hid_t type = H5Tcreate(H5T_COMPOUND, sizeof(ResultRecord));
-        H5Tinsert(type, "task_id", HOFFSET(ResultRecord, task_id), H5T_NATIVE_UINT64);
-        H5Tinsert(type, "assignment", HOFFSET(ResultRecord, assignment), H5T_NATIVE_UINT64);
-        H5Tinsert(type, "rank", HOFFSET(ResultRecord, rank), H5T_NATIVE_INT);
-        H5Tinsert(type, "value_real", HOFFSET(ResultRecord, value_real), H5T_NATIVE_DOUBLE);
-        H5Tinsert(type, "value_imag", HOFFSET(ResultRecord, value_imag), H5T_NATIVE_DOUBLE);
-        H5Tinsert(type, "contribution", HOFFSET(ResultRecord, contribution), H5T_NATIVE_DOUBLE);
-        H5Tinsert(type, "checksum", HOFFSET(ResultRecord, checksum), H5T_NATIVE_UINT64);
-        return type;
-    }
+hid_t create_record_type() {
+    const hid_t type = H5Tcreate(H5T_COMPOUND, sizeof(ResultRecord));
+    H5Tinsert(type, "task_id", HOFFSET(ResultRecord, task_id), H5T_NATIVE_UINT64);
+    H5Tinsert(type, "assignment", HOFFSET(ResultRecord, assignment), H5T_NATIVE_UINT64);
+    H5Tinsert(type, "rank", HOFFSET(ResultRecord, rank), H5T_NATIVE_INT);
+    H5Tinsert(type, "value_real", HOFFSET(ResultRecord, value_real), H5T_NATIVE_DOUBLE);
+    H5Tinsert(type, "value_imag", HOFFSET(ResultRecord, value_imag), H5T_NATIVE_DOUBLE);
+    H5Tinsert(type, "contribution", HOFFSET(ResultRecord, contribution), H5T_NATIVE_DOUBLE);
+    H5Tinsert(type, "checksum", HOFFSET(ResultRecord, checksum), H5T_NATIVE_UINT64);
+    return type;
+}
 
 void write_scalar_attr(hid_t obj, const char* name, std::uint64_t value) {
     const hsize_t dims[1] = {1};
@@ -465,12 +453,12 @@ private:
 };
 } // namespace
 
-std::unique_ptr<StorageBackend> make_storage_backend(StorageMode mode) {
+std::unique_ptr<StorageBackend> make_storage_backend(StorageMode mode) {//StorageMode是枚举类型enum
     switch (mode) {
-        case StorageMode::Memory: return std::make_unique<MemoryStorageBackend>();
+        case StorageMode::Memory: return std::make_unique<MemoryStorageBackend>();//返回的结果类似于new一个对象，()里是构造函数的参数，返回一个指向StorageBackend的智能指针
         case StorageMode::SingleHdf5: return std::make_unique<SingleHdf5StorageBackend>();
         case StorageMode::MultiFile: return std::make_unique<MultiFileStorageBackend>();
     }
-    throw std::runtime_error("Unsupported storage backend");
+    throw std::runtime_error("Unsupported storage backend");//mode不匹配任何的case
 }
 } // namespace qcs

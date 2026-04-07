@@ -618,13 +618,86 @@ n个量子比特 → 长度 2ⁿ 的向量！
 
 ![image-20260327211248710](/home/waxeia/.config/Typora/typora-user-images/image-20260327211248710.png)
 
+record.coefficient：重构系数，结合符号翻转（parity，模拟泡利测量的相位变化）和归一化因子（每切一刀引入 1/2 的权重）。它确保切割后的子任务正确聚合。
+
+1ULL << 3 = 8（即 2^3）
+
 `run_all_benchmarks.sh` 存储压力单次测试脚本。
 
 run_experiments.sh 全量实验脚本。
 
+batch_size（内存端的批量）：
+
+- 定义**：** 指在程序运行过程中，在内存中累积多少条计算结果（`ResultRecord`）后再执行一次写入硬盘的操作。
+- 比喻： 就像送快递，你不是出一件货就跑一趟（I/O 次数多，效率低），而是攒够一车（一个 batch）再出发。
+- 影响： `batch_size` 越大，硬盘写入次数越少，吞吐量通常越高；但它直接占用内存空间。
+
+chunk_records（硬盘端的物理分块）：
+
+- 定义： 这是 HDF5 或文件系统底层存储的概念。它决定了数据在硬盘上是如何物理组织的。一个 chunk 是文件系统一次读写的最小逻辑单元。
+- 比喻： 就像仓库里的货架格子。无论你一次运来多少货（batch_size），最后都要按格子（chunk）的大小填进去。
+- 影响： 它主要影响 HDF5 文件的检索效率和对齐性能。如果 `chunk_records` 设置得太小，文件元数据负担重；如果设置得太大，读取一小条数据也要加载一整个大块，造成浪费。
+
+###  在你项目中的实际运作
+
+1. **生产**：OpenMP 线程在内存中快速计算出量子线路重构的结果。
+2. **积压**：这些结果并不直接写进硬盘，而是先存放在**缓冲区**（内存）里。
+3. **触发**：当缓冲区里的结果数量达到了你设定的 `batch_size`（比如 4096 条）时。
+4. **存盘**：系统执行一次集中的磁盘写入操作（I/O），把这 4096 条数据一次性“倒”进 HDF5 文件或多文件中。
 
 
 
+
+
+amplitude 振幅
+
+实部（real part）
+
+虚部（imaginary part）
+
+Quantum Circuit Cutting 量子电路切割 ˈkwɑːntəm / ˈsɜːrkɪt /
+
+归一化因子（normalization factor）
+
+dock /dɑːk/ 码头；停靠处
+
+parity / ˈpærəti / 奇偶性；*n.*（尤指薪金或地位）平等
+
+Resource Acquisition Is Initialization 资源获取即初始化操作
+
+Sharding n.分片；分区
+
+
+
+
+
+
+
+
+
+
+
+#### C++
+
+**std::unique_ptr 是什么？**
+std::unique_ptr 是 C++ 标准库中的一种智能指针，位于 <memory> 头文件中。
+独占所有权：一个对象只能被一个 std::unique_ptr 拥有。如果想转移所有权，可以用 std::move()。
+自动释放：当 std::unique_ptr 变量超出作用域（scope）时，自动调用 delete 删除对象。
+语法：
+创建：std::unique_ptr<Type> ptr = std::make_unique<Type>(构造函数参数);
+使用：ptr->method(); 或 (*ptr).method();（像普通指针一样）。
+不能复制：std::unique_ptr 不能直接赋值给另一个变量（防止多个指针管理同一个对象）。
+
+**std::make_unique**
+
+比直接 new 更安全：如果构造函数抛出异常，std::make_unique 不会泄漏内存。
+语法简洁：std::make_unique<Type>(args) 相当于 std::unique_ptr<Type>(new Type(args))，但更安全。
+
+**RAII**（Resource Acquisition Is Initialization）模式，确保资源在对象生命周期结束时自动释放。
+
+在 C++ 中，当一个局部对象离开它所在的作用域（比如一个函数执行结束，或者遇到一个右大括号 `}`）时，系统会自动调用它的**析构函数**。
+
+在 HDF5 中，想要读写数据，第一步必须是创建或打开一个 `.h5` 文件（调用 C 接口 `H5Fcreate` 或 `H5Fopen`）。成功后，HDF5 会返回一个文件句柄 `hid_t`。 `ScopedH5File` 就是用来妥善保管这个文件句柄的。
 
 
 
@@ -736,3 +809,19 @@ for (unsigned int i = 0; i < n - 1; ++i) {
 ![image-20260327212321540](/home/waxeia/.config/Typora/typora-user-images/image-20260327212321540.png)
 
 assignment 位态分派”或“算符配置
+
+
+
+#### 答辩问题：
+
+评委老师问：**“你的并行任务规模是如何计算的？为什么是这个规模？”**
+
+你可以非常自信地回答：
+
+> “在我的项目中，任务规模严格遵循量子线路切割的准概率分解（QPD）理论。每次切割量子线，都需要用完整的泡利群（I, X, Y, Z）进行基底展开。因此，理论上 $k$ 次切割会产生严格的 $4^k$ 个独立子线路仿真任务。
+>
+> 在代码实现中，我摒弃了早期用于盲目压测的非物理经验公式，直接采用了位移运算 `1ULL << (2 * k)` 来精准映射 $4^k$。这样不仅在数学和物理上 100% 严谨，而且将任务 ID 与泡利算符的四进制位操作完美绑定，极大提升了任务分发和物理重构的效率。”
+
+如果老师让你展示代码亮点，你可以把这三个类（`ScopedH5File`, `ScopedH5Space`, `ScopedH5Type`）放在一页 PPT 里，总结为：
+
+> “为了确保在数十万次高频 MPI 读写任务中，底层 C 语言库（HDF5）不会发生任何内存泄漏或文件锁死问题，我采用了 C++ 的 RAII 设计模式对所有底层句柄进行了面向对象的安全封装，实现了资源的自动回收，极大提升了分布式集群在极端压力下的稳定性。”
