@@ -27,7 +27,7 @@ public:
 private:
     hid_t id_;
 };
-//理的就是最核心的实体：HDF5物理文件（File）本身
+//管理的就是最核心的实体：HDF5物理文件（File）本身
 class ScopedH5File {
 public:
     explicit ScopedH5File(hid_t id = -1) : id_(id) {}
@@ -127,6 +127,7 @@ void create_rank_group_and_datasets(hid_t file_id, int rank, std::uint64_t chunk
 
     hid_t dcpl = H5Pcreate(H5P_DATASET_CREATE);
     if (dcpl < 0) throw std::runtime_error("Failed to create HDF5 dcpl");
+    //TODO：
     hsize_t chunk_dims[1] = {std::max<std::uint64_t>(1, chunk_records)};
     H5Pset_chunk(dcpl, 1, chunk_dims);
 

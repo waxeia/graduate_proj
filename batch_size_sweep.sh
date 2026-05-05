@@ -6,18 +6,20 @@ CONFIG="./configs/baseline.cfg"
 OUT_BASE="results/batch_size_sweep"
 
 # 实验参数设置
-TASKS=1000000    # 增加到100万任务，使内存特征更明显
+TASKS=10000000    # 增加到100万任务，使内存特征更明显
 QUBITS=15
 MPI_RANKS=8
 OMP_THREADS=1
 
 # 定义 batch_size 的 2 幂次方序列 (共 11 个点)
-BATCH_SIZES=(64 128 256 512 1024 2048 4096 8192 16384 32768 65536)
+#BATCH_SIZES=(64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536)
+#BATCH_SIZES=(131072, 262144, 524288, 1048576, 2097152, 4194304, 8388608, 16777216, 33554432, 67108864, 134217728, 268435456, 536870912, 1073741824, 2147483648)
+BATCH_SIZES=(1048576)
 
 mkdir -p $OUT_BASE
 
 # 初始化汇总表
-FINAL_SUMMARY="$OUT_BASE/batch_size_sweep_results.csv"
+FINAL_SUMMARY="$OUT_BASE/test131072.csv"
 echo "Mode,BatchSize,Total_Time(s),Write_Time(s),Throughput(task/s),MaxBuffer(MB)" > $FINAL_SUMMARY
 
 echo "=================================================="
@@ -26,7 +28,9 @@ echo "并行规模: $MPI_RANKS 进程 | 任务: $TASKS tasks"
 echo "=================================================="
 
 # 重点测试 HDF5 和 Multi-file 模式
-for MODE in "hdf5" "multifile"
+#for MODE in "hdf5" "multifile"
+#for MODE in "hdf5"
+for MODE in "multifile"
 do
     echo ">>> 正在测试模式: $MODE ..."
 
