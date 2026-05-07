@@ -20,4 +20,8 @@ cmake-build-*/
 # 忽略整个 .idea 文件夹（IDE 配置文件）
 .idea/
 
+# results 文件夹（测试结果）
+results/batch_20260505_151229
+results/batch_20260506_222347
+
 README.md

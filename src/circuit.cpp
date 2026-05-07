@@ -109,7 +109,7 @@ ResultRecord evaluate_task(const CircuitDescriptor& circuit,
                                        int rank,
                                        int repeat_id) {
     //关键点1：强制锁定Qulacs内部OpenMP线程为1
-    omp_set_num_threads(1);
+    // omp_set_num_threads(1);
     //为当前要执行的量子子任务“建档”
     ResultRecord record;//结构体对象
     record.task_id = global_task_id;//范围在0到4^k-1之间

@@ -7,14 +7,13 @@ mkdir -p "${RESULT_DIR}"
 
 "${ROOT_DIR}/scripts/build.sh"
 
-#MPI_SET=(1 2 3 4 5 6 7 8)
+MPI_SET=(1 2 4 8)
 BACKENDS=(memory single_hdf5 multi_file)
 BATCH_SET=(1024 4096 16384)
 CHUNK_SET=(4096 16384 65536)
 CUT_SET=(4 6 8)
-#OMP_THREADS=(4 8 12)
-MPI_SET=(1 2 4 8 16)
-OMP_THREADS=(1)
+#OMP_THREADS=(1 2)
+OMP_THREADS=(3)
 #采用固定 OMP，拉满 MPI的控制变量法策略。如果OMP设为多线程，计算耗时会大幅波动，这会掩盖真实的I/O耗时。将OMP设为1，可以让每个任务的计算时间变成一个稳定的常量，从而完美凸显出底层的存储瓶颈。
 
 for mpi in "${MPI_SET[@]}"; do
